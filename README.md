@@ -70,7 +70,7 @@ tar -xvf mvtec_ad_evaluation.tar.xz
 rm mvtec_ad_evaluation.tar.xz
 ```
 
-### Unzip real_dataset
+### Real dataset
 
 ```
 Unzip -P PASSWORD real_dataset.zip
