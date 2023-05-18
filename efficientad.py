@@ -18,7 +18,7 @@ def get_argparse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dataset', default='mvtec_ad',
                         choices=['mvtec_ad', 'mvtec_loco'])
-    parser.add_argument('-s', '--subdataset', default='bottle',
+    parser.add_argument('-s', '--subdataset', default='5',
                         help='One of 15 sub-datasets of Mvtec AD or 5' +
                              'sub-datasets of Mvtec LOCO')
     parser.add_argument('-o', '--output_dir', default='output/1')
@@ -31,12 +31,12 @@ def get_argparse():
                              'pretraining penalty. Or see README.md to' +
                              'download ImageNet and set to ImageNet path')
     parser.add_argument('-a', '--mvtec_ad_path',
-                        default='./mvtec_anomaly_detection',
+                        default='../real_dataset',
                         help='Downloaded Mvtec AD dataset')
     parser.add_argument('-b', '--mvtec_loco_path',
                         default='./mvtec_loco_anomaly_detection',
                         help='Downloaded Mvtec LOCO dataset')
-    parser.add_argument('-t', '--train_steps', type=int, default=70000)
+    parser.add_argument('-t', '--train_steps', type=int, default=100)
     return parser.parse_args()
 
 # constants
@@ -110,8 +110,8 @@ def main():
         raise Exception('Unknown config.dataset')
 
 
-    train_loader = DataLoader(train_set, batch_size=1, shuffle=True,
-                              num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=16, shuffle=True,
+                              num_workers=2, pin_memory=True)
     train_loader_infinite = InfiniteDataloader(train_loader)
     validation_loader = DataLoader(validation_set, batch_size=1)
 
@@ -225,7 +225,7 @@ def main():
                 student=student, autoencoder=autoencoder,
                 teacher_mean=teacher_mean, teacher_std=teacher_std,
                 desc='Intermediate map normalization')
-            auc = test(
+            auc = validate(
                 test_set=test_set, teacher=teacher, student=student,
                 autoencoder=autoencoder, teacher_mean=teacher_mean,
                 teacher_std=teacher_std, q_st_start=q_st_start,
@@ -251,7 +251,7 @@ def main():
         validation_loader=validation_loader, teacher=teacher, student=student,
         autoencoder=autoencoder, teacher_mean=teacher_mean,
         teacher_std=teacher_std, desc='Final map normalization')
-    auc = test(
+    auc = validate(
         test_set=test_set, teacher=teacher, student=student,
         autoencoder=autoencoder, teacher_mean=teacher_mean,
         teacher_std=teacher_std, q_st_start=q_st_start, q_st_end=q_st_end,
@@ -259,7 +259,7 @@ def main():
         test_output_dir=test_output_dir, desc='Final inference')
     print('Final image auc: {:.4f}'.format(auc))
 
-def test(test_set, teacher, student, autoencoder, teacher_mean, teacher_std,
+def validate(test_set, teacher, student, autoencoder, teacher_mean, teacher_std,
          q_st_start, q_st_end, q_ae_start, q_ae_end, test_output_dir=None,
          desc='Running inference'):
     y_true = []
