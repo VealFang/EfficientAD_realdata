@@ -14,6 +14,10 @@ from common import get_autoencoder, get_pdn_small, get_pdn_medium, \
     ImageFolderWithoutTarget, ImageFolderWithPath, InfiniteDataloader
 from sklearn.metrics import roc_auc_score
 
+from Plot import plot_fig
+from scipy.ndimage import gaussian_filter
+
+
 def get_argparse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--dataset', default='mvtec_ad',
@@ -21,7 +25,7 @@ def get_argparse():
     parser.add_argument('-s', '--subdataset', default='5',
                         help='One of 15 sub-datasets of Mvtec AD or 5' +
                              'sub-datasets of Mvtec LOCO')
-    parser.add_argument('-o', '--output_dir', default='output/1')
+    parser.add_argument('-o', '--output_dir', default='output')
     parser.add_argument('-m', '--model_size', default='small',
                         choices=['small', 'medium'])
     parser.add_argument('-w', '--weights', default='models/teacher_small.pth')
@@ -81,10 +85,13 @@ def main():
     # create output dir
     train_output_dir = os.path.join(config.output_dir, 'trainings',
                                     config.dataset, config.subdataset)
+    if not os.path.exists(train_output_dir):
+        os.makedirs(train_output_dir)
+    
     test_output_dir = os.path.join(config.output_dir, 'anomaly_maps',
-                                   config.dataset, config.subdataset, 'test')
-    os.makedirs(train_output_dir)
-    os.makedirs(test_output_dir)
+                                   config.dataset, config.subdataset)
+    if not os.path.exists(test_output_dir):
+        os.makedirs(test_output_dir)
 
     # load data
     full_train_set = ImageFolderWithoutTarget(
@@ -267,6 +274,7 @@ def validate(test_set, teacher, student, autoencoder, teacher_mean, teacher_std,
     for image, target, path in tqdm(test_set, desc=desc):
         orig_width = image.width
         orig_height = image.height
+        orig_img = image.copy()
         image = default_transform(image)
         image = image[None]
         if on_gpu:
@@ -280,14 +288,22 @@ def validate(test_set, teacher, student, autoencoder, teacher_mean, teacher_std,
         map_combined = torch.nn.functional.interpolate(
             map_combined, (orig_height, orig_width), mode='bilinear')
         map_combined = map_combined[0, 0].cpu().numpy()
+        
+        # apply gaussian smoothing on the combined map
+        for i in range(map_combined.shape[0]):
+            map_combined[i] = gaussian_filter(map_combined[i], sigma=4)
+
+        # Normalization
+        max_score = map_combined.max()
+        min_score = map_combined.min()
+        scores = (map_combined - min_score) / (max_score - min_score)
 
         defect_class = os.path.basename(os.path.dirname(path))
         if test_output_dir is not None:
             img_nm = os.path.split(path)[1].split('.')[0]
-            if not os.path.exists(os.path.join(test_output_dir, defect_class)):
-                os.makedirs(os.path.join(test_output_dir, defect_class))
-            file = os.path.join(test_output_dir, defect_class, img_nm + '.tiff')
-            tifffile.imwrite(file, map_combined)
+            plot_fig(orig_img, scores, img_nm, test_output_dir)
+#             file = os.path.join(test_output_dir, defect_class, img_nm + '.tiff')
+#             tifffile.imwrite(file, map_combined)
 
         y_true_image = 0 if defect_class == 'good' else 1
         y_score_image = np.max(map_combined)
