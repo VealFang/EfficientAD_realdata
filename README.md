@@ -70,6 +70,13 @@ tar -xvf mvtec_ad_evaluation.tar.xz
 rm mvtec_ad_evaluation.tar.xz
 ```
 
+### Unzip real_dataset
+
+```
+Unzip -P PASSWORD real_dataset.zip
+```
+
+
 ## efficientad.py
 
 Training and inference:
